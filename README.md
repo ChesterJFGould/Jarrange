@@ -39,4 +39,10 @@ we get the following output.
 + ~~JSON pretty printer~~.
 + Clean up code and make it literate.
 + Make parser produce more helpful error messages.
-+ Add matching on parts of strings and assembling strings
++ Add matching on parts of strings and assembling strings?
++ Add matching on object keys?
+## Interesting Questions
++ If we could match on object keys, in what order should that match be performed?
+e.g. should `{a : b, c : d} -> [a, b, c, d]` matched on `{"c" : "d", "a" : "b"}` output `["c", "d", "a", "b"]` or `["a", "b", "c", "d"]`?
++ Should we even provide string matching/manipulation? Or should that be the responsibility of another program?
++ If we do provide string matching/manipulation how should that work?
