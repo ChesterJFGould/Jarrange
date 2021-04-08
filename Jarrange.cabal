@@ -22,7 +22,6 @@ executable jarrange
   build-depends:
 	  base >=4.13 && <4.14,
 	  megaparsec,
-	  show-prettyprint,
 	  mtl
   -- hs-source-dirs:
   default-language:    Haskell2010

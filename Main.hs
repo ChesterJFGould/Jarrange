@@ -1,8 +1,7 @@
-module Main where
+module Main(main) where
 
 import Text.Megaparsec hiding (match)
 import Text.Megaparsec.Char
-import Text.Show.Prettyprint
 import Control.Monad.State.Lazy
 import Data.Void
 import Data.List
@@ -33,6 +32,8 @@ instance Show JSON where
 data Rule = To JSON JSON
           deriving Show
 
+-- Parses a list of JSON data
+
 parseJsons :: String -> Either (ParseErrorBundle String Void) [JSON]
 parseJsons = parse jsons ""
 
@@ -42,8 +43,9 @@ parseRules fileName = parse rules fileName
 rules = rule `sepEndBy` space
 rule = To <$> json
           <*> (space >> string "->" >> json)
+          <?> "rule"
 jsons = json `sepEndBy` space
-json = space >> (obj <|> array <|> val)
+json = space >> ((obj <|> array <|> val) <?> "JSON value")
 val = num <|> str <|> bool <|> nul <|> var
 num = (Number . read . (foldl (++) "") . concat)
        <$> (sequence [(try $ (: []) <$> string "-") <|> pure [""]
@@ -59,8 +61,9 @@ nul = string "null" >> pure Null
 bool = (Bool) <$> ((string "true" >> pure True) <|> (string "false" >> pure False))
 array = Array <$> (char '[' *> (json `sepBy` (space >> char ',' >> space)) <* char ']')
 obj = Obj <$> (char '{' *> ((member <* space) `sepBy` (char ',' >> space)) <* char '}')
-member = (,) <$> (space >> (char '"' *> str' <* char '"'))
-             <*> (space >> char ':' >> json)
+member = (,) <$> (space >> ((char '"' *> str' <* char '"') <?> "member key"))
+             <*> (space >> char ':' >> (json <?> "member value"))
+             <?> "object member"
 var = Var <$> some alphaNumChar
 
 vars :: JSON -> [String]
@@ -116,6 +119,7 @@ getRules = do
                                                  (sequence . map checkFreeVars))
              [] -> return $ Left "Please pass the file containing the rules"
 
+-- |This is a comment
 main :: IO [()]
 main = do
        rules <- getRules
