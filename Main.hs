@@ -17,7 +17,18 @@ data JSON = Number Double
           | Obj [(String, JSON)]
           | Var String
           | Null
-          deriving (Show, Eq, Ord)
+          deriving (Eq, Ord)
+
+instance Show JSON where
+         show (Number n) = show n
+         show (String s) = "\"" ++ s ++ "\""
+         show (Bool True) = "true"
+         show (Bool False) = "false"
+         show (Array a) = "[" ++ (unwords $ intersperse "," $ map show a) ++ "]"
+         show (Obj mems) = "{" ++ (unwords $ intersperse "," $ map showMem mems) ++ "}"
+                           where showMem (var, val) = unwords [var, ":", show val]
+         show (Var s) = s
+         show Null = "null"
 
 data Rule = To JSON JSON
           deriving Show
@@ -111,6 +122,6 @@ main = do
        either (sequence . (: []) . putStrLn)
               (\rules -> getContents >>= (sequence
                                          . either ((: []) . putStrLn . errorBundlePretty)
-                                                  (map (putStrLn . prettyShow . rearrange rules))
+                                                  (map (putStrLn . show . rearrange rules))
                                          . parseJsons))
               rules

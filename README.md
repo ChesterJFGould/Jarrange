@@ -23,8 +23,8 @@ we get the following output.
 ``` json
 {"obj" : 3.141}
 "Hello, world!"
-10
-{"obj" : [10, 20]}
+10.0
+{"obj" : [10.0, 20.0]}
 [true, false]
 ```
 # Install
