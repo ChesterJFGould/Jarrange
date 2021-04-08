@@ -38,4 +38,5 @@ we get the following output.
 # TODO
 + ~~JSON pretty printer~~.
 + Clean up code and make it literate.
++ Make parser produce more helpful error messages.
 + Add matching on parts of strings and assembling strings
