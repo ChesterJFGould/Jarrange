@@ -36,6 +36,6 @@ we get the following output.
 `jarrange test.jr < test.json`.
 
 # TODO
-+ JSON pretty printer.
++ ~~JSON pretty printer~~.
 + Clean up code and make it literate.
 + Add matching on parts of strings and assembling strings
