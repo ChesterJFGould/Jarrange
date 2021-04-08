@@ -34,3 +34,8 @@ we get the following output.
 + Run `cabal install`.
 + As long as the cabal bin directory (usually `~/.cabal/bin`) is on your path you can test the install by running <br>
 `jarrange test.jr < test.json`.
+
+# TODO
++ JSON pretty printer.
++ Clean up code and make it literate.
++ Add matching on parts of strings and assembling strings

@@ -1,5 +1,4 @@
-[x, x] -> x
 {"hello" : "world"} -> "Hello, World!"
-["this", "is", "a", "test"] -> "This is a test!"
+[x, x] -> x
 {"a" : a, "b" : b} -> [a, b]
-x -> {"obj" : [x, x, x, x]}
+x -> {"obj" : x}
