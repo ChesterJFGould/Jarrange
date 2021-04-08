@@ -27,3 +27,10 @@ we get the following output.
 {"obj" : [10, 20]}
 [true, false]
 ```
+# Install
+## From Source
++ Install [cabal](https://www.haskell.org/cabal/) if you haven't already.
++ Clone this repository.
++ Run `cabal install`.
++ As long as the cabal bin directory (usually `~/.cabal/bin`) is on your path you can test the install by running <br>
+`jarrange test.jr < test.json`.
