@@ -39,6 +39,7 @@ we get the following output.
 + ~~JSON pretty printer~~.
 + Clean up code and make it literate.
 + Make parser produce more helpful error messages.
++ Match types.
 + Add matching on parts of strings and assembling strings?
 + Add matching on object keys?
 ## Interesting Questions
