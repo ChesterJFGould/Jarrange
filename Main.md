@@ -1,22 +1,31 @@
-Header!
-=======
+Header
+======
 
 -   list 1
 -   list 2
 -   list 3
 
-``` {.haskell .literate}
-module Main(main) where
+Subheader
+---------
 
+```haskell
+module Main(main) where
+```
+
+```haskell
 import Text.Megaparsec hiding (match)
 import Text.Megaparsec.Char
 import Control.Monad.State.Lazy
 import Data.Void
 import Data.List
 import System.Environment
+```
 
+```haskell
 iff p c a = if p then c else a
+```
 
+```haskell
 data JSON = Number Double
           | String String
           | Bool Bool
@@ -25,7 +34,9 @@ data JSON = Number Double
           | Var String
           | Null
           deriving (Eq, Ord)
+```
 
+```haskell
 instance Show JSON where
          show (Number n) = show n
          show (String s) = "\"" ++ s ++ "\""
@@ -36,18 +47,26 @@ instance Show JSON where
                            where showMem (var, val) = unwords [var, ":", show val]
          show (Var s) = s
          show Null = "null"
+```
 
+```haskell
 data Rule = To JSON JSON
           deriving Show
+```
 
--- Parses a list of JSON data
+Parses a list of JSON data
 
+```haskell
 parseJsons :: String -> Either (ParseErrorBundle String Void) [JSON]
 parseJsons = parse jsons ""
+```
 
+```haskell
 parseRules :: String -> String -> Either (ParseErrorBundle String Void) [Rule]
 parseRules fileName = parse rules fileName
+```
 
+```haskell
 rules = rule `sepEndBy` space
 rule = To <$> json
           <*> (space >> string "->" >> json)
@@ -73,21 +92,29 @@ member = (,) <$> (space >> ((char '"' *> str' <* char '"') <?> "member key"))
              <*> (space >> char ':' >> (json <?> "member value"))
              <?> "object member"
 var = Var <$> some alphaNumChar
+```
 
+```haskell
 vars :: JSON -> [String]
 vars (Array arr) = concat $ map vars arr
 vars (Obj mems) = concat $ map (vars . snd) mems
 vars (Var v) = [v]
 vars _ = []
+```
 
+```haskell
 freeVars :: [String] -> JSON -> [String]
 freeVars env obj = let ov = nub $ vars obj in foldl (flip delete) ov env
+```
 
+```haskell
 checkFreeVars :: Rule -> Either String Rule
 checkFreeVars (To f t) = case freeVars (nub $ vars f) t of
                             [] -> Right (To f t)
                             fv -> Left $ unwords ["rule", show (To f t), "contains free variables", show fv]
+```
 
+```haskell
 match :: JSON -> JSON -> StateT [(String, JSON)] Maybe ()
 match (Number a) (Number b) = iff (a == b) (return ()) (lift Nothing)
 match (String a) (String b) = iff (a == b) (return ()) (lift Nothing)
@@ -95,7 +122,9 @@ match (Bool a) (Bool b) = iff (a == b) (return ()) (lift Nothing)
 match (Array a) (Array b) = iff (length a == length b)
                                 ((sequence $ map (uncurry match) (zip a b)) >> return ())
                                 (lift Nothing)
+```
 
+```haskell
 match (Obj a) (Obj b) = let ((aVars, aVals), (bVars, bVals)) = (unzip $ sort a, unzip $ sort b)
                         in iff (aVars == bVars)
                                ((sequence $ map (uncurry match) (zip aVals bVals)) >> return ())
@@ -110,13 +139,17 @@ reify env (Array a) = (sequence $ map (reify env) a) >>= (Just . Array)
 reify env (Obj mems) = let (vars, vals) = unzip mems in (sequence $ map (reify env) vals) >>= (Just . Obj . zip vars)
 reify env (Var v) = lookup v env
 reify env obj = Just obj
+```
 
+```haskell
 rearrange :: [Rule] -> JSON -> JSON
 rearrange [] obj = obj
 rearrange (To f t : rest) obj = maybe (rearrange rest obj)
                                  id
                                  (execStateT (match f obj) [] >>= (flip reify $ t))
+```
 
+```haskell
 getRules :: IO (Either String [Rule])
 getRules = do
         args <- getArgs
@@ -126,8 +159,11 @@ getRules = do
                             >>= (return . either (Left . errorBundlePretty)
                                                  (sequence . map checkFreeVars))
              [] -> return $ Left "Please pass the file containing the rules"
+```
 
--- |This is a comment
+This is a comment
+
+```haskell
 main :: IO [()]
 main = do
        rules <- getRules
