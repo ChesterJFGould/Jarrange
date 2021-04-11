@@ -1,5 +1,5 @@
 {-
-= Jarrange - Main
+= J'arrange - Main
 This document is currently the entire source code for the Jarrange language
 so far and is written in a literate style which can be rendered into Github
 compatible Markdown with the `lhsToMarkown.sh` script.
