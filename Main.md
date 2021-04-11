@@ -35,7 +35,7 @@ data JSON = Number Double
           | Bool Bool
           | Array [JSON]
           | Obj [(String, JSON)]
-          | Var String Not part of the JSON spec
+          | Var String
           | Null
           deriving (Eq, Ord)
 ```
