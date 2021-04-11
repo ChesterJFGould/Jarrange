@@ -213,9 +213,9 @@ match _ _ = lift Nothing
 Here it is, the function you've been waiting for. `match` is suprisingly
 simple, it takes in the rule then the value to match on. If the values
 are of the same type and atomic then we just check them for equality. If
-they are complex (and object or array) then we recursively match on
-their elements. Finally if the rule is a variable then we look it up in
-the environment (we'll get to that in a second), if it is bound we then
+they are complex (an object or array) then we recursively match on their
+elements. Finally if the rule is a variable then we look it up in the
+environment (we'll get to that in a second), if it is bound we then
 check if it is equal to the value, otherwise we bind the variable to the
 value. The one tricky part of this function is that it takes place in
 the State monad. If you don't know what that is or just want to watch a
@@ -285,4 +285,5 @@ main = do
 ```
 
 And finally the `main` function. We first read in the rules and then
-apply them to all the JSON values we parse from stdin.
+apply them to all the JSON values we parse from stdin, or print out a
+parse error if we encouter one.
