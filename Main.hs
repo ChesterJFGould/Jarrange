@@ -6,7 +6,7 @@ compatible Markdown with the `lhsToMarkown.sh` script.
 -}
 
 module Main where
-	
+ 
 import Text.Megaparsec hiding (match)
 import Text.Megaparsec.Char
 import Control.Monad.State.Lazy
@@ -33,7 +33,7 @@ data JSON = Number Double
           | Bool Bool
           | Array [JSON]
           | Obj [(String, JSON)]
-          | Var String -- Not part of the JSON spec
+          | Var String
           | Null
           deriving (Eq, Ord)
 

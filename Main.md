@@ -7,7 +7,7 @@ into Github compatible Markdown with the `lhsToMarkown.sh` script.
 
 ```haskell
 module Main where
-  
+ 
 import Text.Megaparsec hiding (match)
 import Text.Megaparsec.Char
 import Control.Monad.State.Lazy
