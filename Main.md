@@ -1,15 +1,5 @@
-Header
-======
-
--   list 1
--   list 2
--   list 3
-
-Subheader
----------
-
 ```haskell
-module Main(main) where
+module Main where
 ```
 
 ```haskell
@@ -25,16 +15,25 @@ import System.Environment
 iff p c a = if p then c else a
 ```
 
+This is basic JSON data type we will be working with. As you can see we
+have added a variable type so we can do pattern matching. It might be
+good in the future to separate this data type into one that contains
+variables and one that doesn't so that we can prove the output of the
+program won't ever contain a variable.
+
 ```haskell
 data JSON = Number Double
           | String String
           | Bool Bool
           | Array [JSON]
           | Obj [(String, JSON)]
-          | Var String
+          | Var String Not part of the JSON spec
           | Null
           deriving (Eq, Ord)
 ```
+
+Now we just give some basic code that turns the JSON data type into
+valid JSON text.
 
 ```haskell
 instance Show JSON where
@@ -49,22 +48,67 @@ instance Show JSON where
          show Null = "null"
 ```
 
+`Rule` represents a rewrite rule with the first JSON value being the one
+we pattern match on while the second is the template we build a concrete
+value from.
+
 ```haskell
 data Rule = To JSON JSON
           deriving Show
 ```
 
-Parses a list of JSON data
+`parseJsons` is the method that abstracts over the parser we will see in
+a bit. It takes in a file name and input string then parses a list of
+JSON values from the input string.
 
 ```haskell
-parseJsons :: String -> Either (ParseErrorBundle String Void) [JSON]
-parseJsons = parse jsons ""
+parseJsons :: String -> String -> Either (ParseErrorBundle String Void) [JSON]
+parseJsons fileName = parse jsons fileName
 ```
+
+`parseRules` is the same as parseJsons except it parses a list of rules
+instead of just JSON values.
 
 ```haskell
 parseRules :: String -> String -> Either (ParseErrorBundle String Void) [Rule]
 parseRules fileName = parse rules fileName
 ```
+
+Now we get to the parser, it looks a bit scary but it essentially
+embodies the following BNF.
+
+    json = <obj>
+         | <array>
+         | <val>
+
+    obj = {}
+        | { <members>
+
+    members = <member> , <members>
+            | <member>
+
+    member = "<str>" : <json>
+
+    array = []
+          | [ <elements> ]
+
+    elements = <json> , <elements>
+             | <json>
+
+    val = <num>
+        | <str>
+        | <bool>
+        | <var>
+        | null
+
+    num = -?\d+(.\d+)?([+-]?[eE]\d+)?
+
+    str = "([^\\"]+|\\.)*"
+
+    bool = true
+         | false
+
+    var = [a-z|A-Z|0-9]+
 
 ```haskell
 rules = rule `sepEndBy` space
@@ -122,9 +166,6 @@ match (Bool a) (Bool b) = iff (a == b) (return ()) (lift Nothing)
 match (Array a) (Array b) = iff (length a == length b)
                                 ((sequence $ map (uncurry match) (zip a b)) >> return ())
                                 (lift Nothing)
-```
-
-```haskell
 match (Obj a) (Obj b) = let ((aVars, aVals), (bVars, bVals)) = (unzip $ sort a, unzip $ sort b)
                         in iff (aVars == bVars)
                                ((sequence $ map (uncurry match) (zip aVals bVals)) >> return ())
@@ -161,8 +202,6 @@ getRules = do
              [] -> return $ Left "Please pass the file containing the rules"
 ```
 
-This is a comment
-
 ```haskell
 main :: IO [()]
 main = do
@@ -171,6 +210,6 @@ main = do
               (\rules -> getContents >>= (sequence
                                          . either ((: []) . putStrLn . errorBundlePretty)
                                                   (map (putStrLn . show . rearrange rules))
-                                         . parseJsons))
+                                         . parseJsons "stdin"))
               rules
 ```
