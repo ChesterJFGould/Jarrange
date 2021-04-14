@@ -33,7 +33,6 @@ data JSON = Number Double
           | Bool Bool
           | Array [JSON]
           | Obj [(String, JSON)]
-          | Var String
           | Null
           deriving (Eq, Ord)
 
@@ -62,7 +61,16 @@ Now we just give some basic code that turns the JSON data type into valid JSON
 text.
 -}
 
-data Rule = To JSON JSON
+data JSONTemplate = Number Double
+                  | String String
+                  | Bool Bool
+                  | Array [JSON]
+                  | Obj [(String, JSON)]
+                  | Var String
+                  | Null
+                  deriving (Eq, Ord)
+
+data Rule = To JSONTemplate JSONTemplate
           deriving Show
 
 {-
@@ -93,11 +101,11 @@ rule = To <$> json
           <?> "rule"
 jsons = json `sepEndBy` space
 json = space >> ((obj <|> array <|> val) <?> "JSON value")
-obj = Obj <$> (char '{' *> ((member <* space) `sepBy` (char ',' >> space)) <* char '}')
+obj = (char '{' *> ((member <* space) `sepBy` (char ',' >> space)) <* char '}')
 member = (,) <$> (space >> ((char '"' *> str' <* char '"') <?> "member key"))
              <*> (space >> char ':' >> (json <?> "member value"))
              <?> "object member"
-array = Array <$> (char '[' *> (json `sepBy` (space >> char ',' >> space)) <* char ']')
+array = (char '[' *> (json `sepBy` (space >> char ',' >> space)) <* char ']')
 val = num <|> str <|> bool <|> nul <|> var
 num = (Number . read . (foldl (++) "") . concat)
        <$> (sequence [(try $ (: []) <$> string "-") <|> pure [""]
