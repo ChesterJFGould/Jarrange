@@ -53,7 +53,6 @@ instance Show JSON where
          show (Array a) = "[" ++ (unwords $ intersperse "," $ map show a) ++ "]"
          show (Obj mems) = "{" ++ (unwords $ intersperse "," $ map showMem mems) ++ "}"
                            where showMem (var, val) = unwords [var, ":", show val]
-         show (Var s) = s
          show Null = "null"
 
 {-
@@ -61,17 +60,30 @@ Now we just give some basic code that turns the JSON data type into valid JSON
 text.
 -}
 
-data JSONTemplate = Number Double
-                  | String String
-                  | Bool Bool
-                  | Array [JSON]
-                  | Obj [(String, JSON)]
-                  | Var String
-                  | Null
+data JSONTemplate = TNumber Double
+                  | TString String
+                  | TBool Bool
+                  | TArray [JSONTemplate]
+                  | TObj [(String, JSONTemplate)]
+                  | TVar String
+                  | TNull
                   deriving (Eq, Ord)
 
+instance Show JSONTemplate where
+         show (TNumber n) = show n
+         show (TString s) = "\"" ++ s ++ "\""
+         show (TBool True) = "true"
+         show (TBool False) = "false"
+         show (TArray a) = "[" ++ (unwords $ intersperse "," $ map show a) ++ "]"
+         show (TObj mems) = "{" ++ (unwords $ intersperse "," $ map showMem mems) ++ "}"
+                           where showMem (var, val) = unwords ["\"" ++ var ++ "\"", ":", show val]
+         show (TVar v) = v
+         show TNull = "null"
+
 data Rule = To JSONTemplate JSONTemplate
-          deriving Show
+
+instance Show Rule where
+         show (To f t) = unwords [show f, "->", show t]
 
 {-
 `Rule` represents a rewrite rule with the first JSON value being the one we pattern
@@ -96,18 +108,34 @@ of just JSON values.
 -}
 
 rules = rule `sepEndBy` space
-rule = To <$> json
-          <*> (space >> string "->" >> json)
+rule = To <$> jsonTemplate
+          <*> (space >> string "->" >> jsonTemplate)
           <?> "rule"
 jsons = json `sepEndBy` space
-json = space >> ((obj <|> array <|> val) <?> "JSON value")
-obj = (char '{' *> ((member <* space) `sepBy` (char ',' >> space)) <* char '}')
-member = (,) <$> (space >> ((char '"' *> str' <* char '"') <?> "member key"))
-             <*> (space >> char ':' >> (json <?> "member value"))
+json = space >> (((Obj <$> obj json)
+                  <|> (Array <$> array json)
+                  <|> (Number <$> num)
+                  <|> (String <$> str)
+                  <|> (Bool <$> bool)
+                  <|> nul) <?> "JSON value")
+jsonTemplate = space >> (((TObj <$> obj jsonTemplate)
+                          <|> (TArray <$> array jsonTemplate)
+                          <|> (TNumber <$> num)
+                          <|> (TString <$> str)
+                          <|> (TBool <$> bool)
+                          <|> tnul
+                          <|> var) <?> "JSON template")
+
+obj :: Parsec Void String a -> Parsec Void String [(String, a)]
+obj p = (char '{' *> ((member p <* space) `sepBy` (char ',' >> space)) <* char '}')
+member :: Parsec Void String a -> Parsec Void String (String, a)
+member p = (,) <$> (space >> (str <?> "member key"))
+             <*> (space >> char ':' >> (p <?> "member value"))
              <?> "object member"
-array = (char '[' *> (json `sepBy` (space >> char ',' >> space)) <* char ']')
-val = num <|> str <|> bool <|> nul <|> var
-num = (Number . read . (foldl (++) "") . concat)
+array :: Parsec Void String a -> Parsec Void String [a]
+array p = (char '[' *> (p `sepBy` (space >> char ',' >> space)) <* char ']')
+num :: Parsec Void String Double
+num = (read . (foldl (++) "") . concat)
        <$> (sequence [(try $ (: []) <$> string "-") <|> pure [""]
                      , (: []) <$> some (digitChar :: Parsec Void String Char)
                      , (try $ sequence [string "."
@@ -115,11 +143,14 @@ num = (Number . read . (foldl (++) "") . concat)
                      , (try $ sequence [(: []) <$> oneOf "eE"
                                        , (try $ ((: []) <$> oneOf "+-")) <|> pure ""
                                        , some (digitChar :: Parsec Void String Char)] <|> pure [""])])
-str = String <$> (char '"' *> str' <* char '"')
-str' = concat <$> many ((some $ noneOf "\"\\") <|> (sequence [char '\\', anySingle]))
-bool = (Bool) <$> ((string "true" >> pure True) <|> (string "false" >> pure False))
-var = Var <$> some alphaNumChar
+str = char '"' *> (concat
+                   <$> many ((some $ noneOf "\"\\")
+                             <|> (sequence [char '\\', anySingle])))
+                  <* char '"'
+bool = (string "true" >> pure True) <|> (string "false" >> pure False)
+var = TVar <$> some alphaNumChar
 nul = string "null" >> pure Null
+tnul = string "null" >> pure TNull
 
 {-
 Now we get to the parser, it looks a bit scary but it essentially embodies the
@@ -174,17 +205,17 @@ Now we get to the fun bit, pattern matching.
 First we'll define some functions to help with that.
 -}
 
-vars :: JSON -> [String]
-vars (Array arr) = concat $ map vars arr
-vars (Obj mems) = concat $ map (vars . snd) mems
-vars (Var v) = [v]
+vars :: JSONTemplate -> [String]
+vars (TArray arr) = concat $ map vars arr
+vars (TObj mems) = concat $ map (vars . snd) mems
+vars (TVar v) = [v]
 vars _ = []
 
 {-
 `vars` returns a list of all the variable names used in a JSON value.
 -}
 
-freeVars :: [String] -> JSON -> [String]
+freeVars :: [String] -> JSONTemplate -> [String]
 freeVars env obj = let ov = nub $ vars obj in foldl (flip delete) ov env
 
 {-
@@ -203,20 +234,20 @@ right side are bound on the left side.
 If the right side contains free variables then we return an error message.
 -}
 
-match :: JSON -> JSON -> StateT [(String, JSON)] Maybe ()
-match (Number a) (Number b) = iff (a == b) (return ()) (lift Nothing)
-match (String a) (String b) = iff (a == b) (return ()) (lift Nothing)
-match (Bool a) (Bool b) = iff (a == b) (return ()) (lift Nothing)
-match (Array a) (Array b) = iff (length a == length b)
+match :: JSONTemplate -> JSON -> StateT [(String, JSON)] Maybe ()
+match (TNumber a) (Number b) = iff (a == b) (return ()) (lift Nothing)
+match (TString a) (String b) = iff (a == b) (return ()) (lift Nothing)
+match (TBool a) (Bool b) = iff (a == b) (return ()) (lift Nothing)
+match (TArray a) (Array b) = iff (length a == length b)
                                 ((sequence $ map (uncurry match) (zip a b)) >> return ())
                                 (lift Nothing)
-match (Obj a) (Obj b) = let ((aVars, aVals), (bVars, bVals)) = (unzip $ sort a, unzip $ sort b)
+match (TObj a) (Obj b) = let ((aVars, aVals), (bVars, bVals)) = (unzip $ sort a, unzip $ sort b)
                         in iff (aVars == bVars)
                                ((sequence $ map (uncurry match) (zip aVals bVals)) >> return ())
                                (lift Nothing)
-match (Var v) a = gets (lookup v) >>= maybe (modify $ ((v, a) :))
+match (TVar v) a = gets (lookup v) >>= maybe (modify $ ((v, a) :))
                                             (\b -> iff (a == b) (return ()) (lift Nothing))
-match Null Null = return ()
+match TNull Null = return ()
 match _ _ = lift Nothing
 
 {-
@@ -242,11 +273,14 @@ This is just so that if the value doesn't in fact match the rule we can just
 signal failure and exit the function.
 -}
                         
-reify :: [(String, JSON)] -> JSON -> Maybe JSON
-reify env (Array a) = (sequence $ map (reify env) a) >>= (Just . Array)
-reify env (Obj mems) = let (vars, vals) = unzip mems in (sequence $ map (reify env) vals) >>= (Just . Obj . zip vars)
-reify env (Var v) = lookup v env
-reify env obj = Just obj
+reify :: [(String, JSON)] -> JSONTemplate -> Maybe JSON
+reify env (TArray a) = (sequence $ map (reify env) a) >>= (Just . Array)
+reify env (TObj mems) = let (vars, vals) = unzip mems in (sequence $ map (reify env) vals) >>= (Just . Obj . zip vars)
+reify env (TVar v) = lookup v env
+reify env (TNumber n) = Just $ Number n
+reify env (TString s) = Just $ String s
+reify env (TBool b) = Just $ Bool b
+reify env (TNull) = Just $ Null
 
 {-
 `reify` is much simpler than the `match` function.
